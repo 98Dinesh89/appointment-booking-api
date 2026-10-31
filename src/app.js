@@ -1,5 +1,7 @@
 import express from 'express';
 import pool from './config/db.js';
+import authRoutes from './routes/authRoutes.js';
+import slotRoutes from './routes/slotRoutes.js';
 
 const app = express();
 
@@ -12,6 +14,14 @@ app.get('/api/health', async (req, res) => {
     } catch (error) {
         res.status(500).json({ status: 'error', database: 'unreachable' });
     }
+});
+
+app.use('/api/auth', authRoutes);
+app.use('/api/slots', slotRoutes);
+
+app.use((err, req, res, next) => {
+    console.error(err);
+    res.status(500).json({ message: 'Internal server error' });
 });
 
 export default app;
