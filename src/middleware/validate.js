@@ -1,3 +1,5 @@
+import { AppError } from '../utils/AppError.js';
+
 export function validate(schemas) {
     return (req, res, next) => {
         const validated = {};
@@ -20,7 +22,7 @@ export function validate(schemas) {
         }
 
         if (errors.length > 0) {
-            return res.status(400).json({ message: 'Validation failed', errors });
+            return next(new AppError(400, 'Validation failed', errors));
         }
 
         req.validated = validated;

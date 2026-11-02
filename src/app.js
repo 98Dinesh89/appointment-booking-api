@@ -1,5 +1,6 @@
 import express from 'express';
 import pool from './config/db.js';
+import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import authRoutes from './routes/authRoutes.js';
 import bookingRoutes from './routes/bookingRoutes.js';
 import slotRoutes from './routes/slotRoutes.js';
@@ -21,16 +22,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/slots', slotRoutes);
 app.use('/api/bookings', bookingRoutes);
 
-app.use((req, res) => {
-    res.status(404).json({ message: 'Route not found' });
-});
-
-app.use((err, req, res, next) => {
-    if (err.type === 'entity.parse.failed') {
-        return res.status(400).json({ message: 'Malformed JSON body' });
-    }
-    console.error(err);
-    return res.status(500).json({ message: 'Internal server error' });
-});
+app.use(notFoundHandler);
+app.use(errorHandler);
 
 export default app;

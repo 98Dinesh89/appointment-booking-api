@@ -6,72 +6,57 @@ import {
     listBookingsByUser,
 } from '../models/bookingModel.js';
 import { findSlotById } from '../models/slotModel.js';
+import { AppError } from '../utils/AppError.js';
+import { asyncHandler } from '../utils/asyncHandler.js';
 
-export async function bookSlot(req, res, next) {
-    try {
-        const { slotId } = req.validated.body;
+export const bookSlot = asyncHandler(async (req, res) => {
+    const { slotId } = req.validated.body;
 
-        const slot = await findSlotById(slotId);
-        if (!slot) {
-            return res.status(404).json({ message: 'Slot not found' });
-        }
-        if (slot.startTime <= new Date()) {
-            return res.status(400).json({ message: 'This slot has already started' });
-        }
-
-        const existing = await findActiveBookingBySlot(slotId);
-        if (existing) {
-            return res.status(409).json({ message: 'Slot is already booked' });
-        }
-
-        const id = await createBooking({ userId: req.user.id, slotId });
-        const booking = await findBookingById(id);
-        return res.status(201).json({ booking });
-    } catch (error) {
-        if (error.code === 'ER_DUP_ENTRY') {
-            return res.status(409).json({ message: 'Slot is already booked' });
-        }
-        return next(error);
+    const slot = await findSlotById(slotId);
+    if (!slot) {
+        throw new AppError(404, 'Slot not found');
     }
-}
-
-export async function getMyBookings(req, res, next) {
-    try {
-        const bookings = await listBookingsByUser(req.user.id);
-        return res.status(200).json({ count: bookings.length, bookings });
-    } catch (error) {
-        return next(error);
+    if (slot.startTime <= new Date()) {
+        throw new AppError(400, 'This slot has already started');
     }
-}
 
-export async function cancelMyBooking(req, res, next) {
-    try {
-        const { id: bookingId } = req.validated.params;
-
-        const booking = await findBookingById(bookingId);
-        if (!booking) {
-            return res.status(404).json({ message: 'Booking not found' });
-        }
-        if (booking.userId !== req.user.id) {
-            return res.status(403).json({ message: 'You can only cancel your own bookings' });
-        }
-        if (booking.status === 'cancelled') {
-            return res.status(409).json({ message: 'Booking is already cancelled' });
-        }
-        if (booking.startTime <= new Date()) {
-            return res
-                .status(400)
-                .json({ message: 'Cannot cancel a booking whose slot has already started' });
-        }
-
-        const affectedRows = await cancelBooking({ id: bookingId, cancelledAt: new Date() });
-        if (affectedRows === 0) {
-            return res.status(409).json({ message: 'Booking is already cancelled' });
-        }
-
-        const updated = await findBookingById(bookingId);
-        return res.status(200).json({ booking: updated });
-    } catch (error) {
-        return next(error);
+    const existing = await findActiveBookingBySlot(slotId);
+    if (existing) {
+        throw new AppError(409, 'Slot is already booked');
     }
-}
+
+    const id = await createBooking({ userId: req.user.id, slotId });
+    const booking = await findBookingById(id);
+    res.status(201).json({ booking });
+});
+
+export const getMyBookings = asyncHandler(async (req, res) => {
+    const bookings = await listBookingsByUser(req.user.id);
+    res.status(200).json({ count: bookings.length, bookings });
+});
+
+export const cancelMyBooking = asyncHandler(async (req, res) => {
+    const { id: bookingId } = req.validated.params;
+
+    const booking = await findBookingById(bookingId);
+    if (!booking) {
+        throw new AppError(404, 'Booking not found');
+    }
+    if (booking.userId !== req.user.id) {
+        throw new AppError(403, 'You can only cancel your own bookings');
+    }
+    if (booking.status === 'cancelled') {
+        throw new AppError(409, 'Booking is already cancelled');
+    }
+    if (booking.startTime <= new Date()) {
+        throw new AppError(400, 'Cannot cancel a booking whose slot has already started');
+    }
+
+    const affectedRows = await cancelBooking({ id: bookingId, cancelledAt: new Date() });
+    if (affectedRows === 0) {
+        throw new AppError(409, 'Booking is already cancelled');
+    }
+
+    const updated = await findBookingById(bookingId);
+    res.status(200).json({ booking: updated });
+});
