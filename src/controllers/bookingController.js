@@ -9,11 +9,7 @@ import { findSlotById } from '../models/slotModel.js';
 
 export async function bookSlot(req, res, next) {
     try {
-        const { slotId } = req.body ?? {};
-
-        if (!Number.isInteger(slotId) || slotId < 1) {
-            return res.status(400).json({ message: 'slotId must be a positive integer' });
-        }
+        const { slotId } = req.validated.body;
 
         const slot = await findSlotById(slotId);
         if (!slot) {
@@ -32,6 +28,9 @@ export async function bookSlot(req, res, next) {
         const booking = await findBookingById(id);
         return res.status(201).json({ booking });
     } catch (error) {
+        if (error.code === 'ER_DUP_ENTRY') {
+            return res.status(409).json({ message: 'Slot is already booked' });
+        }
         return next(error);
     }
 }
@@ -47,10 +46,7 @@ export async function getMyBookings(req, res, next) {
 
 export async function cancelMyBooking(req, res, next) {
     try {
-        if (!/^[1-9]\d*$/.test(req.params.id)) {
-            return res.status(400).json({ message: 'Booking id must be a positive integer' });
-        }
-        const bookingId = Number(req.params.id);
+        const { id: bookingId } = req.validated.params;
 
         const booking = await findBookingById(bookingId);
         if (!booking) {
